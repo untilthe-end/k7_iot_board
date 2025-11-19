@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import org.example.boardback.common.enums.Gender;
 import org.example.boardback.common.enums.RoleType;
 import org.example.boardback.entity.base.BaseTimeEntity;
+import org.example.boardback.entity.file.FileInfo;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -17,13 +18,13 @@ import java.util.stream.Collectors;
 @Table(
         name = "users",
         uniqueConstraints = {
-                @UniqueConstraint(name="uk_users_username", columnNames = "username"),
-                @UniqueConstraint(name="uk_users_email", columnNames = "email"),
-                @UniqueConstraint(name="uk_users_nickname", columnNames = "nickname"),
+                @UniqueConstraint(name = "uk_users_username", columnNames = "username"),
+                @UniqueConstraint(name = "uk_users_email", columnNames = "email"),
+                @UniqueConstraint(name = "uk_users_nickname", columnNames = "nickname"),
         }
 )
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED) // 같은 패키지나 상속받는 클래스에서만
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseTimeEntity {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", updatable = false)
@@ -45,33 +46,42 @@ public class User extends BaseTimeEntity {
     @Column(name = "gender", length = 20)
     private Gender gender;
 
-    // OneToMany 유지보수 차원에서 이거 많이 씀
+    // 프로필 이미지 파일 매핑
+    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "profile_file_id",
+            foreignKey = @ForeignKey(name = "fk_users_profile_file"))
+    private FileInfo profileFile;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<UserRole> userRoles = new HashSet<>();
 
     @Builder
-    private User(String username, String password, String email, String nickname, Gender gender) {
+    private User(String username, String password, String email, String nickname, Gender gender, FileInfo profileFile) {
         this.username = username;
         this.password = password;
         this.email = email;
         this.nickname = nickname;
         this.gender = gender;
+        this.profileFile = profileFile;
     }
 
-    // 도메인 로직
+    // == 도메인 로직 == //
     public void changePassword(String password) {
         this.password = password;
     }
 
-    public void changeProfile(String nickname, Gender gender) {
+    public void updateProfile(String nickname, Gender gender) {
         this.nickname = nickname;
         this.gender = gender;
+    }
+
+    public void updateProfileImage(FileInfo newProfileFile) {
+        this.profileFile = newProfileFile;
     }
 
     public void grantRole(Role role) {
         boolean exists = userRoles.stream()
                 .anyMatch(userRole -> userRole.getRole().equals(role));
-
         if (!exists) {
             userRoles.add(new UserRole(this, role));
         }
